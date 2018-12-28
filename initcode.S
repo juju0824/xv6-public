@@ -1,5 +1,4 @@
 # Initial process execs /init.
-# This code runs in user space.
 
 #include "syscall.h"
 #include "traps.h"
@@ -23,7 +22,6 @@ exit:
 # char init[] = "/init\0";
 init:
   .string "/init\0"
-
 # char *argv[] = { init, 0 };
 .p2align 2
 argv:

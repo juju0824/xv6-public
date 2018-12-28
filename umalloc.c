@@ -7,7 +7,6 @@
 // The C programming Language, 2nd ed.  Section 8.7.
 
 typedef long Align;
-
 union header {
   struct {
     union header *ptr;

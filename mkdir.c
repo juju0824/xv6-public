@@ -18,6 +18,5 @@ main(int argc, char *argv[])
       break;
     }
   }
-
   exit();
 }

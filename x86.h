@@ -8,7 +8,6 @@ inb(ushort port)
   asm volatile("in %1,%0" : "=a" (data) : "d" (port));
   return data;
 }
-
 static inline void
 insl(int port, void *addr, int cnt)
 {
@@ -121,7 +120,7 @@ static inline uint
 xchg(volatile uint *addr, uint newval)
 {
   uint result;
-
+  
   // The + in "+m" denotes a read-modify-write operand.
   asm volatile("lock; xchgl %0, %1" :
                "+m" (*addr), "=a" (result) :
@@ -139,7 +138,7 @@ rcr2(void)
 }
 
 static inline void
-lcr3(uint val)
+lcr3(uint val) 
 {
   asm volatile("movl %0,%%cr3" : : "r" (val));
 }

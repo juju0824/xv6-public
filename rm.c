@@ -11,7 +11,6 @@ main(int argc, char *argv[])
     printf(2, "Usage: rm files...\n");
     exit();
   }
-
   for(i = 1; i < argc; i++){
     if(unlink(argv[i]) < 0){
       printf(2, "rm: %s failed to delete\n", argv[i]);

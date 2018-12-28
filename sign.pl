@@ -13,7 +13,6 @@ print STDERR "boot block is $n bytes (max 510)\n";
 
 $buf .= "\0" x (510-$n);
 $buf .= "\x55\xAA";
-
 open(SIG, ">$ARGV[0]") || die "open >$ARGV[0]: $!";
 print SIG $buf;
 close SIG;

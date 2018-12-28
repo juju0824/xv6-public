@@ -12,7 +12,6 @@ sys_fork(void)
 {
   return fork();
 }
-
 int
 sys_exit(void)
 {
@@ -39,7 +38,7 @@ sys_kill(void)
 int
 sys_getpid(void)
 {
-  return myproc()->pid;
+  return proc->pid;
 }
 
 int
@@ -50,7 +49,7 @@ sys_sbrk(void)
 
   if(argint(0, &n) < 0)
     return -1;
-  addr = myproc()->sz;
+  addr = proc->sz;
   if(growproc(n) < 0)
     return -1;
   return addr;
@@ -67,7 +66,7 @@ sys_sleep(void)
   acquire(&tickslock);
   ticks0 = ticks;
   while(ticks - ticks0 < n){
-    if(myproc()->killed){
+    if(proc->killed){
       release(&tickslock);
       return -1;
     }
@@ -88,4 +87,66 @@ sys_uptime(void)
   xticks = ticks;
   release(&tickslock);
   return xticks;
+}
+
+int
+sys_write_at(void)
+{
+  int x, y;
+  int c;
+
+  if (argint(0, &x) < 0 || argint(1, &y) < 0 || argint(2, &c) < 0) {
+    return -1;
+  }
+
+  write_at(x, y, (char)c);
+  return 0;
+}
+
+int
+sys_clear_screen(void)
+{
+  clear_screen();
+  return 0;
+}
+
+int
+sys_set_console_parameters(void)
+{
+	int p;
+	argint(0,&p);
+	set_console_parameters(p);
+	return 0;
+}
+
+int 
+sys_clone(void)
+{
+  int function, arg, stack;
+  if(argint(0, &function) < 0)
+    return -1;
+  if(argint(1, &arg) < 0)
+    return -1;
+  if(argint(2, &stack) < 0)
+    return -1;
+  return clone((void*)function, (void*)arg, (void*)stack);
+}
+
+int
+sys_join(void)
+{
+  int stack;
+  if(argint(0,&stack)<0)
+    return -1;
+  return join((void**)stack);
+}
+
+int
+sys_set_cursor(void)
+{
+  int x, y;
+  if (argint(0, &x) < 0 || argint(1, &y) < 0)
+    return -1;
+  set_cursor(x, y);
+  return 0;
 }

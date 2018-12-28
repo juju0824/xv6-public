@@ -7,6 +7,7 @@
 # memory at physical address 0x7c00 and starts executing in real mode
 # with %cs=0 %ip=7c00.
 
+  
 .code16                       # Assemble for 16-bit mode
 .globl start
 start:
@@ -45,7 +46,7 @@ seta20.2:
   movl    %eax, %cr0
 
 //PAGEBREAK!
-  # Complete the transition to 32-bit protected mode by using a long jmp
+  # Complete transition to 32-bit protected mode by using long jmp
   # to reload %cs and %eip.  The segment descriptors are set up with no
   # translation, so that the mapping is still the identity mapping.
   ljmp    $(SEG_KCODE<<3), $start32

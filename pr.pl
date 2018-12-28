@@ -10,6 +10,8 @@ if($ARGV[0] eq "-h"){
 	$h = $ARGV[0];
 }
 
+
+
 $page = 0;
 $now = strftime "%b %e %H:%M %Y", localtime;
 

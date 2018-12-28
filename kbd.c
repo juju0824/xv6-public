@@ -42,7 +42,6 @@ kbdgetc(void)
   }
   return c;
 }
-
 void
 kbdintr(void)
 {

@@ -7,7 +7,6 @@
 #include "param.h"
 #include "traps.h"
 #include "spinlock.h"
-#include "sleeplock.h"
 #include "fs.h"
 #include "file.h"
 #include "memlayout.h"
@@ -16,13 +15,19 @@
 #include "x86.h"
 
 static void consputc(int);
-
 static int panicked = 0;
-
 static struct {
   struct spinlock lock;
   int locking;
 } cons;
+
+// console_flags: 0x 0000 00ab
+// a: color; b: input_buffer_mask
+static int console_flags = 0x0070;
+
+void set_console_parameters(int p){
+  console_flags = p;
+}
 
 static void
 printint(int xx, int base, int sign)
@@ -111,8 +116,7 @@ panic(char *s)
 
   cli();
   cons.locking = 0;
-  // use lapiccpunum so that we can call panic from mycpu()
-  cprintf("lapicid %d: panic: ", lapicid());
+  cprintf("cpu%d: panic: ", cpu->id);
   cprintf(s);
   cprintf("\n");
   getcallerpcs(&s, pcs);
@@ -127,6 +131,73 @@ panic(char *s)
 #define BACKSPACE 0x100
 #define CRTPORT 0x3d4
 static ushort *crt = (ushort*)P2V(0xb8000);  // CGA memory
+
+// Coordinates start from the left top as (0, 0)
+// put char c directly to the (x, y) pixcel
+// Note:
+// - When finished, the cursor would be set to the line after the bottom-most-in-history line.
+// - When cursor moves, it clears its moving path.
+// Bug:
+// - With no care about the current screen and cursor, would cause something remaining or covering on the console.
+void
+write_at(int x, int y, char c)
+{
+  static int bottom = 0;
+  int pos;
+
+  if (x < 0 || x > 79 || y < 0 || y > 23)
+    panic("In console.c:151(write_at), x or y out of canvas range");
+  pos = x + 80 * y;
+  if (y > bottom) {
+    memset(crt + (bottom + 1) * 80, 0, sizeof(crt[0]) * 80 * (y - bottom));
+    bottom = y;
+  }
+
+  if(c == '\n')
+    pos += 80 - pos%80;
+  else if(c == BACKSPACE){
+    if(pos > 0) --pos;
+  } else
+    crt[pos++] = (c&0xff) | ((console_flags & 0x00f0) << 4);  // black on white
+
+  if(pos < 0 || pos > 24*80)
+    panic("pos under/overflow");
+
+  if((pos/80) > 24){  // Scroll up.
+    memmove(crt, crt+80, sizeof(crt[0])*24*80);
+    pos -= 80;
+    memset(crt+pos, 0, sizeof(crt[0])*(25*80 - pos));
+  }
+
+  pos = (bottom + 1) * 80;
+  outb(CRTPORT, 14);
+  outb(CRTPORT+1, pos>>8);
+  outb(CRTPORT, 15);
+  outb(CRTPORT+1, pos);
+}
+
+void set_cursor(int x, int y) {
+  if (x < 0 || x > 80 || y < 0 || y > 24)
+    panic("In console.c:182(set_cursor), x or y under/overflow");
+  int pos = x + y * 80;
+  outb(CRTPORT, 14);
+  outb(CRTPORT+1, pos>>8);
+  outb(CRTPORT, 15);
+  outb(CRTPORT+1, pos);
+}
+
+// Clear all and set the cursor to (0, 0)
+// which is the left top of the console.
+void clear_screen(void) {
+  int pos = 0;
+  memset(crt, 0, sizeof(crt[0])*(25*80));
+
+  outb(CRTPORT, 14);
+  outb(CRTPORT+1, pos>>8);
+  outb(CRTPORT, 15);
+  outb(CRTPORT+1, pos);
+  crt[pos] = ' ' | ((console_flags & 0x00f0) << 4);
+}
 
 static void
 cgaputc(int c)
@@ -144,22 +215,22 @@ cgaputc(int c)
   else if(c == BACKSPACE){
     if(pos > 0) --pos;
   } else
-    crt[pos++] = (c&0xff) | 0x0700;  // black on white
+    crt[pos++] = (c&0xff) | ((console_flags & 0x00f0) << 4);  // black on white
 
   if(pos < 0 || pos > 25*80)
     panic("pos under/overflow");
 
-  if((pos/80) >= 24){  // Scroll up.
-    memmove(crt, crt+80, sizeof(crt[0])*23*80);
+  if((pos/80) > 24){  // Scroll up.
+    memmove(crt, crt+80, sizeof(crt[0])*24*80);
     pos -= 80;
-    memset(crt+pos, 0, sizeof(crt[0])*(24*80 - pos));
+    memset(crt+pos, 0, sizeof(crt[0])*(25*80 - pos));
   }
 
   outb(CRTPORT, 14);
   outb(CRTPORT+1, pos>>8);
   outb(CRTPORT, 15);
   outb(CRTPORT+1, pos);
-  crt[pos] = ' ' | 0x0700;
+  crt[pos] = ' ' | ((console_flags & 0x00f0) << 4);
 }
 
 void
@@ -197,8 +268,7 @@ consoleintr(int (*getc)(void))
   while((c = getc()) >= 0){
     switch(c){
     case C('P'):  // Process listing.
-      // procdump() locks cons.lock indirectly; invoke later
-      doprocdump = 1;
+      doprocdump = 1;   // procdump() locks cons.lock indirectly; invoke later
       break;
     case C('U'):  // Kill line.
       while(input.e != input.w &&
@@ -217,8 +287,9 @@ consoleintr(int (*getc)(void))
       if(c != 0 && input.e-input.r < INPUT_BUF){
         c = (c == '\r') ? '\n' : c;
         input.buf[input.e++ % INPUT_BUF] = c;
-        consputc(c);
-        if(c == '\n' || c == C('D') || input.e == input.r+INPUT_BUF){
+        if(!(console_flags & 0x1))
+					consputc(c);
+        if(console_flags & 0x1 || c == '\n' || c == C('D') || input.e == input.r+INPUT_BUF){
           input.w = input.e;
           wakeup(&input.r);
         }
@@ -243,7 +314,7 @@ consoleread(struct inode *ip, char *dst, int n)
   acquire(&cons.lock);
   while(n > 0){
     while(input.r == input.w){
-      if(myproc()->killed){
+      if(proc->killed){
         release(&cons.lock);
         ilock(ip);
         return -1;
@@ -294,6 +365,6 @@ consoleinit(void)
   devsw[CONSOLE].read = consoleread;
   cons.locking = 1;
 
+  picenable(IRQ_KBD);
   ioapicenable(IRQ_KBD, 0);
 }
-

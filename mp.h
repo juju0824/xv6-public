@@ -10,7 +10,6 @@ struct mp {             // floating pointer
   uchar imcrp;
   uchar reserved[3];
 };
-
 struct mpconf {         // configuration table header
   uchar signature[4];           // "PCMP"
   ushort length;                // total table length
@@ -25,7 +24,6 @@ struct mpconf {         // configuration table header
   uchar xchecksum;              // extended table checksum
   uchar reserved;
 };
-
 struct mpproc {         // processor table entry
   uchar type;                   // entry type (0)
   uchar apicid;                 // local APIC id

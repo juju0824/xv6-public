@@ -17,7 +17,6 @@ for(my $i = 0; $i < 256; $i++){
     print "  pushl \$$i\n";
     print "  jmp alltraps\n";
 }
-
 print "\n# vector table\n";
 print ".data\n";
 print ".globl vectors\n";

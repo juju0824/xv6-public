@@ -3,7 +3,6 @@
 #include "user.h"
 
 char buf[512];
-
 void
 wc(int fd, char *name)
 {

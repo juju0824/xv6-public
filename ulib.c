@@ -4,8 +4,10 @@
 #include "user.h"
 #include "x86.h"
 
+
+static unsigned int rand_seed;
 char*
-strcpy(char *s, const char *t)
+strcpy(char *s, char *t)
 {
   char *os;
 
@@ -24,7 +26,7 @@ strcmp(const char *p, const char *q)
 }
 
 uint
-strlen(const char *s)
+strlen(char *s)
 {
   int n;
 
@@ -68,7 +70,7 @@ gets(char *buf, int max)
 }
 
 int
-stat(const char *n, struct stat *st)
+stat(char *n, struct stat *st)
 {
   int fd;
   int r;
@@ -93,14 +95,39 @@ atoi(const char *s)
 }
 
 void*
-memmove(void *vdst, const void *vsrc, int n)
+memmove(void *vdst, void *vsrc, int n)
 {
-  char *dst;
-  const char *src;
-
+  char *dst, *src;
+  
   dst = vdst;
   src = vsrc;
   while(n-- > 0)
     *dst++ = *src++;
   return vdst;
 }
+
+
+int random(int min, int max)
+{
+	static int flag=0;
+	if(flag==0){
+		mysrand(uptime());
+		myrand();
+		flag=1;
+	}else{
+		myrand();
+	}
+	int rand = min+rand_seed%(max-min);
+	return rand;
+}
+
+void mysrand(unsigned int seed)
+{
+	rand_seed = seed;
+}
+
+void myrand()
+{
+	rand_seed = (rand_seed * 16807L) % ((1<<31) - 1);
+}
+
